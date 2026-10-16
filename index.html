@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QUICK HELP - Centro de Control y Priorización Post-Desastre</title>
+    <!-- Ícono de la pestaña del navegador (Favicon) -->
+    <link rel="icon" type="image/png" href="image.png">
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <!-- Hoja de estilos personalizada -->
+    <link rel="stylesheet" href="styles.css">
+    <!-- Supabase JS -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body class="bg-slate-900 text-slate-100 font-sans antialiased flex flex-col h-screen overflow-hidden">
+
+    <!-- Header Responsivo -->
+    <header class="bg-slate-800 border-b border-slate-700 p-3 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-3 shadow-md shrink-0">
+        <div class="flex items-center space-x-3 w-full sm:w-auto justify-between sm:justify-start">
+            <div class="flex items-center space-x-3">
+                <img src="image.png" alt="QUICK HELP" class="h-10 w-10 object-contain rounded-lg shadow-sm">
+                <div>
+                    <h1 class="text-sm sm:text-base font-bold leading-tight">Gestión Post-Emergencia</h1>
+                    <p class="text-[10px] text-slate-400 hidden sm:block">Coordinación Operativa y Priorización en Tiempo Real</p>
+                </div>
+            </div>
+            <!-- Contador móvil -->
+            <div class="bg-slate-700 px-2.5 py-1 rounded-lg text-xs sm:hidden">
+                Total: <span id="total-count-mobile" class="font-bold text-red-400">0</span>
+            </div>
+        </div>
+
+        <!-- Botones de Acción y Contador Escritorio -->
+        <div class="flex items-center space-x-2 w-full sm:w-auto justify-end">
+            <button id="btn-audio" onclick="activarSonido()" class="bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold px-3 py-2 rounded-lg shadow transition flex items-center space-x-1">
+                <span>🔇 Activar Alertas</span>
+            </button>
+            <button onclick="abrirModal()" class="bg-red-600 hover:bg-red-700 text-white text-xs font-bold px-3 py-2 rounded-lg shadow transition flex items-center space-x-1 flex-1 sm:flex-none justify-center">
+                <span>🚨 + Nuevo Reporte</span>
+            </button>
+            <button onclick="cargarIncidentes()" class="text-xs bg-slate-700 hover:bg-slate-600 px-3 py-2 rounded-lg transition">Actualizar</button>
+            <div class="bg-slate-700 px-3 py-1.5 rounded-lg text-xs hidden sm:block">
+                Incidentes: <span id="total-count" class="font-bold text-red-400">0</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Layout: En móviles se apila verticalmente, en escritorio lado a lado -->
+    <div class="flex flex-col lg:flex-row flex-1 overflow-hidden">
+        
+        <!-- Panel Izquierdo: Lista de Prioridades (IPA) -->
+        <div class="w-full lg:w-5/12 p-3 sm:p-4 overflow-y-auto h-[45vh] lg:h-full border-b lg:border-b-0 lg:border-r border-slate-800 shrink-0">
+            <div class="flex justify-between items-center mb-3">
+                <h2 class="text-xs sm:text-sm font-semibold text-slate-200">📋 Cola de Urgencia (IPA)</h2>
+                <span class="text-[10px] text-slate-400">Toca tarjeta para ver en mapa</span>
+            </div>
+
+            <!-- Contenedor de Tarjetas -->
+            <div id="incidentes-list" class="space-y-2.5">
+                <p class="text-xs text-slate-500 text-center py-6">Sincronizando datos...</p>
+            </div>
+        </div>
+
+        <!-- Panel Derecho: Mapa Interactivo -->
+        <div class="w-full lg:w-7/12 h-[55vh] lg:h-full relative shrink-0">
+            <div id="map" class="w-full h-full z-10"></div>
+        </div>
+    </div>
+
+    <!-- Modal de Registro de Incidente -->
+    <div id="modal-reporte" class="fixed inset-0 bg-black/70 hidden z-50 flex items-center justify-center p-4">
+        <div class="bg-slate-800 border border-slate-700 rounded-2xl w-full max-w-lg p-5 shadow-2xl text-slate-100 max-h-[90vh] overflow-y-auto">
+            <div class="flex justify-between items-center mb-3 border-b border-slate-700 pb-2">
+                <h3 class="font-bold text-base text-red-400">🚨 Registrar Nuevo Incidente</h3>
+                <button onclick="cerrarModal()" class="text-slate-400 hover:text-white font-bold text-xl">&times;</button>
+            </div>
+            
+            <form id="form-incidente" onsubmit="guardarIncidente(event)" class="space-y-3 text-xs sm:text-sm">
+                <div class="bg-blue-900/40 border border-blue-700/50 p-2.5 rounded-lg text-[11px] text-blue-200">
+                    💡 <b>Consejo:</b> Puedes cerrar este cuadro y <b>hacer clic en cualquier parte del mapa</b> para capturar automáticamente las coordenadas exactas.
+                </div>
+                <div>
+                    <label class="block font-semibold text-slate-300 mb-1">Título del Incidente</label>
+                    <input type="text" id="titulo" required class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-red-500" placeholder="Ej. Deslizamiento en camino principal">
+                </div>
+                <div>
+                    <label class="block font-semibold text-slate-300 mb-1">Descripción</label>
+                    <textarea id="descripcion" rows="2" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-red-500" placeholder="Detalles de la emergencia..."></textarea>
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <label class="block font-semibold text-slate-300 mb-1">Latitud</label>
+                        <input type="number" step="any" id="latitud" value="11.9344" required class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-white">
+                    </div>
+                    <div>
+                        <label class="block font-semibold text-slate-300 mb-1">Longitud</label>
+                        <input type="number" step="any" id="longitud" value="-85.9560" required class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-white">
+                    </div>
+                </div>
+                <div class="grid grid-cols-3 gap-2">
+                    <div>
+                        <label class="block text-[10px] font-semibold text-slate-300 mb-1">Gravedad (1-10)</label>
+                        <input type="number" min="1" max="10" id="gravedad" value="8" required class="w-full bg-slate-900 border border-slate-700 rounded-lg p-1.5 text-white text-center">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-semibold text-slate-300 mb-1">Vulnerabilidad (1-10)</label>
+                        <input type="number" min="1" max="10" id="vulnerabilidad" value="7" required class="w-full bg-slate-900 border border-slate-700 rounded-lg p-1.5 text-white text-center">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-semibold text-slate-300 mb-1">Riesgo Infra. (1-10)</label>
+                        <input type="number" min="1" max="10" id="riesgo" value="6" required class="w-full bg-slate-900 border border-slate-700 rounded-lg p-1.5 text-white text-center">
+                    </div>
+                </div>
+                <div>
+                    <label class="block font-semibold text-slate-300 mb-1">Reportado por</label>
+                    <input type="text" id="reportado_por" value="Comando Central / Brigada" required class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white">
+                </div>
+                
+                <div class="flex justify-end space-x-2 pt-3 border-t border-slate-700">
+                    <button type="button" onclick="cerrarModal()" class="bg-slate-700 hover:bg-slate-600 px-3.5 py-2 rounded-lg font-semibold transition">Cancelar</button>
+                    <button type="submit" class="bg-red-600 hover:bg-red-700 px-4 py-2 rounded-lg font-semibold text-white transition shadow-lg">Guardar y Priorizar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <!-- Script principal de la aplicación -->
+    <script src="app.js"></script>
+</body>
+</html>
