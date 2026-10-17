@@ -140,6 +140,17 @@ async function cargarIncidentes() {
             badgeColor = 'bg-orange-600';
         }
 
+        // Miniatura de la evidencia fotográfica
+        const evidenciaHTML = inc.foto_url 
+            ? `<div style="margin-top: 8px;">
+                 <img src="${inc.foto_url}" 
+                      alt="Evidencia" 
+                      onclick="verFotoAmpliada('${inc.foto_url}')"
+                      style="width: 70px; height: 70px; object-fit: cover; border-radius: 6px; cursor: pointer; border: 2px solid #fff; box-shadow: 0 2px 4px rgba(0,0,0,0.3);">
+                 <span style="display: block; font-size: 10px; color: #94a3b8; margin-top: 2px;">🔍 Clic para ampliar foto</span>
+               </div>`
+            : `<p style="font-size: 11px; color: #64748b; margin-top: 5px;">Sin evidencia fotográfica</p>`;
+
         const card = document.createElement('div');
         card.className = `bg-slate-800 border border-slate-700 p-3 rounded-xl shadow hover:border-slate-500 transition`;
         card.innerHTML = `
@@ -150,8 +161,9 @@ async function cargarIncidentes() {
             <div class="cursor-pointer" onclick="centrarMapa(${inc.latitud}, ${inc.longitud})">
                 <h3 class="font-bold text-slate-100 text-xs mb-1">${inc.titulo}</h3>
                 <p class="text-[11px] text-slate-300 mb-2">${inc.descripcion || 'Sin descripción'}</p>
+                ${evidenciaHTML}
             </div>
-            <div class="flex justify-between items-center text-[10px] text-slate-400 border-t border-slate-700 pt-2 mt-1">
+            <div class="flex justify-between items-center text-[10px] text-slate-400 border-t border-slate-700 pt-2 mt-2">
                 <span>Reportó: <b>${inc.reportado_por || 'Comunidad'}</b></span>
                 <div class="space-x-1">
                     <button onclick="cambiarEstado('${inc.id}', 'resuelto')" class="bg-emerald-600 hover:bg-emerald-700 text-white px-2 py-1 rounded font-semibold transition">✅ Atender</button>
@@ -172,12 +184,16 @@ async function cargarIncidentes() {
 
             const marker = L.marker([inc.latitud, inc.longitud], { icon: customIcon }).addTo(markersLayer);
             
+            // Si hay foto en el popup del mapa también la mostramos de forma opcional
+            const fotoPopup = inc.foto_url ? `<br><img src="${inc.foto_url}" style="width: 100px; height: 70px; object-fit: cover; border-radius: 4px; margin-top: 4px; cursor: pointer;" onclick="verFotoAmpliada('${inc.foto_url}')">` : '';
+
             marker.bindPopup(`
                 <div style="color: #1e293b;">
                     <b>${inc.titulo}</b><br>
                     <small>${inc.descripcion}</small><br>
                     <b>IPA:</b> ${ipaVal.toFixed(1)}<br>
-                    <b>Estado:</b> ${inc.estado}<br><br>
+                    <b>Estado:</b> ${inc.estado}
+                    ${fotoPopup}<br><br>
                     <button onclick="cambiarEstado('${inc.id}', 'resuelto')" style="background: #059669; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 11px;">Marcar Atendido</button>
                 </div>
             `);
@@ -278,3 +294,31 @@ async function eliminarIncidente(id) {
 
 // Cargar al iniciar
 cargarIncidentes();
+
+// Funciones del Visor Dinámico (Modal) para las Fotos de Evidencia
+function verFotoAmpliada(url) {
+  let modal = document.getElementById('modalEvidencia');
+  
+  if (!modal) {
+    const modalHTML = `
+      <div id="modalEvidencia" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.85); z-index:99999; justify-content:center; align-items:center;">
+        <div style="position:relative; max-width:85%; max-height:85%; text-align:center;">
+          <button onclick="cerrarModalFoto()" style="position:absolute; top:-40px; right:0; background:#ff4d4d; color:white; border:none; padding:8px 16px; border-radius:4px; cursor:pointer; font-weight:bold;">Cerrar X</button>
+          <img id="imagenAmpliada" src="" style="width:100%; max-height:80vh; object-fit:contain; border-radius:8px; box-shadow: 0 4px 12px rgba(0,0,0,0.5);">
+        </div>
+      </div>`;
+    document.body.insertAdjacentHTML('beforeend', modalHTML);
+    modal = document.getElementById('modalEvidencia');
+  }
+
+  const img = document.getElementById('imagenAmpliada');
+  img.src = url;
+  modal.style.display = 'flex';
+}
+
+function cerrarModalFoto() {
+  const modal = document.getElementById('modalEvidencia');
+  if (modal) {
+    modal.style.display = 'none';
+  }
+}
