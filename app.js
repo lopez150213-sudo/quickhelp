@@ -66,14 +66,13 @@ function reproducirAlertaSonora() {
             mensaje.pitch = 1.0;
             mensaje.volume = 1.0;
 
-            // Buscar una voz en español latino (México, Estados Unidos, Colombia, etc.)
             const voces = window.speechSynthesis.getVoices();
             const vozLatina = voces.find(voz => voz.lang.startsWith('es-MX') || voz.lang.startsWith('es-US') || voz.lang.startsWith('es-CO'));
             
             if (vozLatina) {
                 mensaje.voice = vozLatina;
             } else {
-                mensaje.lang = 'es-MX'; // Fallback a español latino genérico
+                mensaje.lang = 'es-MX';
             }
 
             window.speechSynthesis.speak(mensaje);
@@ -85,7 +84,6 @@ function reproducirAlertaSonora() {
     }
 }
 
-// Asegurar que las voces del sistema estén cargadas
 if ('speechSynthesis' in window) {
     window.speechSynthesis.onvoiceschanged = () => {
         window.speechSynthesis.getVoices();
@@ -140,16 +138,28 @@ async function cargarIncidentes() {
             badgeColor = 'bg-orange-600';
         }
 
-        // Miniatura de la evidencia fotográfica
-        const evidenciaHTML = inc.foto_url 
-            ? `<div style="margin-top: 8px;">
-                 <img src="${inc.foto_url}" 
-                      alt="Evidencia" 
-                      onclick="verFotoAmpliada('${inc.foto_url}')"
-                      style="width: 70px; height: 70px; object-fit: cover; border-radius: 6px; cursor: pointer; border: 2px solid #fff; box-shadow: 0 2px 4px rgba(0,0,0,0.3);">
-                 <span style="display: block; font-size: 10px; color: #94a3b8; margin-top: 2px;">🔍 Clic para ampliar foto</span>
-               </div>`
-            : `<p style="font-size: 11px; color: #64748b; margin-top: 5px;">Sin evidencia fotográfica</p>`;
+        // Miniatura de la evidencia fotográfica y datos de contacto a la par
+        const evidenciaConContactoHTML = `
+            <div style="display: flex; align-items: center; gap: 10px; margin-top: 8px; margin-bottom: 8px;">
+                ${inc.foto_url 
+                    ? `<img src="${inc.foto_url}" 
+                           alt="Evidencia" 
+                           onclick="verFotoAmpliada('${inc.foto_url}')"
+                           style="width: 65px; height: 65px; object-fit: cover; border-radius: 6px; cursor: pointer; border: 2px solid #fff; box-shadow: 0 2px 4px rgba(0,0,0,0.3); flex-shrink: 0;">`
+                    : `<div style="width: 65px; height: 65px; background: #334155; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 9px; color: #94a3b8; text-align: center; flex-shrink: 0;">Sin foto</div>`
+                }
+                <div style="display: flex; flex-direction: column; justify-content: center; overflow: hidden;">
+                    <span style="font-size: 12px; font-weight: bold; color: #f1f5f9; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                        👤 ${inc.reportado_por || 'Comunidad'}
+                    </span>
+                    ${inc.telefono_contacto 
+                        ? `<a href="https://wa.me/505${inc.telefono_contacto}" target="_blank" style="display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 600; color: #34d399; background: rgba(5, 150, 105, 0.2); padding: 2px 6px; border-radius: 4px; border: 1px solid rgba(52, 211, 153, 0.3); width: fit-content; margin-top: 4px; text-decoration: none;">
+                            📱 ${inc.telefono_contacto}
+                           </a>` 
+                        : '<span style="font-size: 10px; color: #64748b; margin-top: 4px;">Sin teléfono</span>'
+                    }
+                </div>
+            </div>`;
 
         const card = document.createElement('div');
         card.className = `bg-slate-800 border border-slate-700 p-3 rounded-xl shadow hover:border-slate-500 transition`;
@@ -160,18 +170,27 @@ async function cargarIncidentes() {
             </div>
             <div class="cursor-pointer" onclick="centrarMapa(${inc.latitud}, ${inc.longitud})">
                 <h3 class="font-bold text-slate-100 text-xs mb-1">${inc.titulo}</h3>
-                <p class="text-[11px] text-slate-300 mb-2">${inc.descripcion || 'Sin descripción'}</p>
-                ${evidenciaHTML}
+                <p class="text-[11px] text-slate-300 mb-1">${inc.descripcion || 'Sin descripción'}</p>
             </div>
-            <div class="flex justify-between items-center text-[10px] text-slate-400 border-t border-slate-700 pt-2 mt-2">
-                <span>Reportó: <b>${inc.reportado_por || 'Comunidad'}</b></span>
-                <div class="space-x-1">
+
+            ${evidenciaConContactoHTML}
+
+            <div class="flex flex-col gap-2 border-t border-slate-700 pt-2 mt-1 text-[10px]">
+                <div class="flex justify-between items-center text-slate-400">
+                    <span class="text-[10px] text-slate-500">Ref: ${inc.direccion_referencia || 'N/D'}</span>
+                    <!-- BOTÓN PARA TRAZAR RUTA EN EL MISMO MAPA -->
+                    <button onclick="trazarRutaEnMapa(${inc.latitud}, ${inc.longitud})" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-2.5 py-1 rounded transition flex items-center gap-1 shadow">
+                        🗺️ Trazar Ruta
+                    </button>
+                </div>
+                <div class="flex justify-end items-center gap-1">
+                    <button onclick="abrirModalEditar('${inc.id}', ${inc.nivel_gravedad || 5}, ${inc.vulnerabilidad_poblacion || 5}, ${inc.riesgo_infraestructura || 5})" class="bg-amber-600 hover:bg-amber-700 text-white px-2 py-1 rounded font-semibold transition">✏️ Evaluar</button>
                     <button onclick="cambiarEstado('${inc.id}', 'resuelto')" class="bg-emerald-600 hover:bg-emerald-700 text-white px-2 py-1 rounded font-semibold transition">✅ Atender</button>
-                    <button onclick="eliminarIncidente('${inc.id}')" class="bg-rose-600 hover:bg-rose-700 text-white px-2 py-1 rounded font-semibold transition">🗑️ Eliminar</button>
+                    <button onclick="eliminarIncidente('${inc.id}')" class="bg-rose-600 hover:bg-rose-700 text-white px-2 py-1 rounded font-semibold transition">🗑️</button>
                 </div>
             </div>
         `;
-        
+
         listContainer.appendChild(card);
 
         if (inc.latitud && inc.longitud) {
@@ -184,7 +203,6 @@ async function cargarIncidentes() {
 
             const marker = L.marker([inc.latitud, inc.longitud], { icon: customIcon }).addTo(markersLayer);
             
-            // Si hay foto en el popup del mapa también la mostramos de forma opcional
             const fotoPopup = inc.foto_url ? `<br><img src="${inc.foto_url}" style="width: 100px; height: 70px; object-fit: cover; border-radius: 4px; margin-top: 4px; cursor: pointer;" onclick="verFotoAmpliada('${inc.foto_url}')">` : '';
 
             marker.bindPopup(`
@@ -321,4 +339,81 @@ function cerrarModalFoto() {
   if (modal) {
     modal.style.display = 'none';
   }
+}
+
+// Funciones del Modal de Edición / Evaluación de Prioridad
+function abrirModalEditar(id, gravedad, vulnerabilidad, riesgo) {
+    document.getElementById('edit-incidente-id').value = id;
+    document.getElementById('edit-gravedad').value = gravedad;
+    document.getElementById('edit-vulnerabilidad').value = vulnerabilidad;
+    document.getElementById('edit-riesgo').value = riesgo;
+    document.getElementById('modal-editar-evaluacion').classList.remove('hidden');
+}
+
+function cerrarModalEditar() {
+    document.getElementById('modal-editar-evaluacion').classList.add('hidden');
+}
+
+async function guardarEvaluacionEditada(e) {
+    e.preventDefault();
+
+    const id = document.getElementById('edit-incidente-id').value;
+    const nuevaGravedad = parseInt(document.getElementById('edit-gravedad').value);
+    const nuevaVulnerabilidad = parseInt(document.getElementById('edit-vulnerabilidad').value);
+    const nuevoRiesgo = parseInt(document.getElementById('edit-riesgo').value);
+
+    const { error } = await supabaseClient
+        .from('incidentes')
+        .update({
+            nivel_gravedad: nuevaGravedad,
+            vulnerabilidad_poblacion: nuevaVulnerabilidad,
+            riesgo_infraestructura: nuevoRiesgo
+        })
+        .eq('id', id);
+
+    if (error) {
+        alert('Error al actualizar la evaluación: ' + error.message);
+        return;
+    }
+
+    cerrarModalEditar();
+    cargarIncidentes();
+}
+
+let controlRuta = null;
+
+function trazarRutaEnMapa(destinoLat, destinoLng) {
+    // Si ya hay una ruta activa, la borramos del mapa para limpiar
+    if (controlRuta) {
+        map.removeControl(controlRuta);
+    }
+
+    // Obtenemos la posición actual de la unidad de rescate
+    if (!navigator.geolocation) {
+        alert('Tu navegador no soporta geolocalización.');
+        return;
+    }
+
+    navigator.geolocation.getCurrentPosition(position => {
+        const origenLat = position.coords.latitude;
+        const origenLng = position.coords.longitude;
+
+        // Creamos y trazamos la ruta en el mapa actual
+        controlRuta = L.Routing.control({
+            waypoints: [
+                L.latLng(origenLat, origenLng), // Tu posición actual (Unidad)
+                L.latLng(destinoLat, destinoLng) // Destino (Incidente)
+            ],
+            routeWhileDragging: false,
+            language: 'es',
+            lineOptions: {
+                styles: [{ color: '#2563eb', opacity: 0.8, weight: 6 }]
+            },
+            createMarker: function() { return null; } // Evita poner pines duplicados, ya usamos los tuyos
+        }).addTo(map);
+
+        alert('¡Ruta trazada con éxito en el mapa!');
+    }, () => {
+        alert('No se pudo obtener tu ubicación GPS actual para iniciar la ruta.');
+    });
 }
