@@ -267,8 +267,11 @@ async function guardarIncidente(event) {
         vulnerabilidad_poblacion: parseInt(document.getElementById('vulnerabilidad').value),
         riesgo_infraestructura: parseInt(document.getElementById('riesgo').value),
         reportado_por: document.getElementById('reportado_por').value,
+        telefono_contacto: document.getElementById('telefono_contacto')?.value || null,
         estado: 'pendiente'
     };
+
+    // ... (el resto del código de guardarIncidente queda exactamente igual)
 
     const { error } = await supabaseClient
         .from('incidentes')
